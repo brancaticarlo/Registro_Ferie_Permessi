@@ -19,7 +19,1044 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
+    <style><!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestione Ferie e Permessi</title>
+    
+    <!-- React e ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel per transpilare JSX nel browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Librerie per esportazione PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
     <style>
+      /* Aggiunge una transizione fluida per il tema scuro/chiaro */
+      body {
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      .main-gradient {
+        background-color: #4682B4; /* SteelBlue */
+        background-image: 
+          radial-gradient(140% 140% at 100% 0%, #5E94C8 30%, transparent 70%),
+          radial-gradient(140% 140% at 0% 100%, #3E72A4 30%, transparent 70%);
+      }
+      .dark .main-gradient {
+        background-color: #2c3e50; /* Dark Slate Blue */
+        background-image: 
+          radial-gradient(140% 140% at 100% 0%, #34495e 30%, transparent 70%),
+          radial-gradient(140% 140% at 0% 100%, #233140 30%, transparent 70%);
+      }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react,typescript">
+      
+// --- TYPES ---
+const_EXPORT_DO_NOT_REMOVE = 1; // Dummy export to satisfy module scope
+
+// --- ICONS ---
+const icons = {
+  plus: <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />,
+  sliders: <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />,
+  calendar: <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0h18M-4.5 12h22.5" />,
+  clock: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />,
+  download: <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />,
+  upload: <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />,
+  pencil: <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />,
+  trash: <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />,
+  x: <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />,
+  arrowLeft: <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />,
+  list: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />,
+  mail: <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25-2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />,
+  document: <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />,
+};
+
+const Icon = ({ name, className = 'w-6 h-6', ...props }) => {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} {...props}>
+      {icons[name]}
+    </svg>
+  );
+};
+
+
+// --- HOOKS ---
+const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
+
+function useLocalStorage(key, initialValue) {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(error);
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(storedValue));
+    } catch (error) {
+      console.error(error);
+    }
+  }, [key, storedValue]);
+
+  return [storedValue, setStoredValue];
+}
+
+
+// --- TOAST NOTIFICATION SYSTEM ---
+
+const toastIcons = {
+    success: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
+    error: <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />,
+    info: <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />,
+};
+
+const Toast = ({ message, type, onDismiss }) => {
+    const baseClasses = "flex items-center w-full max-w-xs p-4 mb-4 text-slate-500 bg-white rounded-lg shadow-lg dark:text-slate-400 dark:bg-slate-800 transition-all duration-300 transform animate-fade-in-right";
+    const typeClasses = {
+        success: 'text-green-500 dark:text-green-400',
+        error: 'text-red-500 dark:text-red-400',
+        info: 'text-blue-500 dark:text-blue-400',
+    };
+    const iconContainerClasses = {
+        success: 'bg-green-100 dark:bg-green-900',
+        error: 'bg-red-100 dark:bg-red-900',
+        info: 'bg-blue-100 dark:bg-blue-900',
+    };
+
+    return (
+        <div className={baseClasses} role="alert">
+            <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 ${typeClasses[type]} ${iconContainerClasses[type]} rounded-lg`}>
+                <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    {toastIcons[type]}
+                </svg>
+                <span className="sr-only">{type} icon</span>
+            </div>
+            <div className="ml-3 text-sm font-normal">{message}</div>
+            <button type="button" className="ml-auto -mx-1.5 -my-1.5 bg-white text-slate-400 hover:text-slate-900 rounded-lg focus:ring-2 focus:ring-slate-300 p-1.5 hover:bg-slate-100 inline-flex items-center justify-center h-8 w-8 dark:text-slate-500 dark:hover:text-white dark:bg-slate-800 dark:hover:bg-slate-700" aria-label="Close" onClick={onDismiss}>
+                <span className="sr-only">Close</span>
+                <Icon name="x" className="w-5 h-5" />
+            </button>
+        </div>
+    );
+};
+
+const ToastContainer = ({ toasts, removeToast }) => (
+    <div className="fixed top-5 right-5 z-[100]">
+        {toasts.map(toast => (
+            <Toast 
+                key={toast.id}
+                message={toast.message}
+                type={toast.type}
+                onDismiss={() => removeToast(toast.id)}
+            />
+        ))}
+    </div>
+);
+
+const ToastContext = createContext(null);
+const useToast = () => useContext(ToastContext);
+
+
+// --- UTILS ---
+const formatDateForExport = (dateString) => {
+  return new Date(dateString).toLocaleDateString('it-IT');
+};
+
+const calculateMinutes = (startTime, endTime) => {
+  if (!startTime || !endTime) return 0;
+  const start = new Date(`1970-01-01T${startTime}`);
+  const end = new Date(`1970-01-01T${endTime}`);
+  if (isNaN(start) || isNaN(end)) return 0;
+  return Math.round((end.getTime() - start.getTime()) / 60000);
+};
+
+const formatMinutesToHoursAndMinutes = (minutes) => {
+    if (isNaN(minutes) || minutes < 0) return '0m';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0 && mins > 0) return `${hours}h ${mins}m`;
+    if (hours > 0) return `${hours}h`;
+    return `${mins}m`;
+};
+
+const exportToXLS = (exportData, filename = 'report.xls') => {
+  const { entries, annualHolidayAllowance, holidays, leaveTypes, leaveEntries } = exportData;
+  const reportDate = new Date().toLocaleDateString('it-IT');
+  
+  const remainingHolidays = annualHolidayAllowance - holidays.length;
+  const leaveBalances = leaveTypes.map(type => {
+    const usedMinutes = leaveEntries
+      .filter(entry => entry.leaveTypeId === type.id)
+      .reduce((acc, entry) => acc + calculateMinutes(entry.startTime, entry.endTime), 0);
+    const remainingMinutes = type.allowanceMinutes - usedMinutes;
+    return { 
+      name: type.name, 
+      remaining: formatMinutesToHoursAndMinutes(remainingMinutes) 
+    };
+  });
+
+  const summaryRows = [
+    [`Riepilogo Residui alla data del: ${reportDate}`],
+    [],
+    ['Tipo', 'Residuo'],
+    ['Ferie', `${remainingHolidays} giorni`],
+    ...leaveBalances.map(b => [`Permessi ${b.name}`, `${b.remaining}`]),
+    [],
+  ];
+
+  const headers = ['Data', 'Tipo', 'Dettaglio', 'Durata', 'Note'];
+  const dataRows = entries.map(entry => {
+    const notes = entry.data.notes || '';
+    if (entry.type === 'holiday') {
+      return [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '', notes];
+    } else {
+      const duration = formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime));
+      const durationWithRange = `${duration} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`;
+      return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, durationWithRange, notes];
+    }
+  });
+
+  const tsvContent = [
+      ...summaryRows.map(e => e.join('\t')), 
+      headers.join('\t'), 
+      ...dataRows.map(e => e.join('\t'))
+  ].join('\n');
+  
+  const xlsContent = "data:application/vnd.ms-excel;charset=utf-8," + tsvContent;
+  const encodedUri = encodeURI(xlsContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportToPDF = (exportData, filename = 'report.pdf') => {
+  const { entries, annualHolidayAllowance, holidays, leaveTypes, leaveEntries } = exportData;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const reportDate = new Date().toLocaleDateString('it-IT');
+  
+  const remainingHolidays = annualHolidayAllowance - holidays.length;
+  const leaveBalances = leaveTypes.map(type => {
+    const usedMinutes = leaveEntries
+      .filter(entry => entry.leaveTypeId === type.id)
+      .reduce((acc, entry) => acc + calculateMinutes(entry.startTime, entry.endTime), 0);
+    const remainingMinutes = type.allowanceMinutes - usedMinutes;
+    return { 
+      name: type.name, 
+      remaining: formatMinutesToHoursAndMinutes(remainingMinutes) 
+    };
+  });
+  
+  doc.text("Report Ferie e Permessi", 14, 15);
+
+  let currentY = 25;
+  doc.setFontSize(12);
+  doc.text(`Riepilogo Residui alla data del: ${reportDate}`, 14, currentY);
+  currentY += 10;
+
+  doc.setFontSize(10);
+  doc.text(`- Ferie Residue: ${remainingHolidays} giorni`, 14, currentY);
+  currentY += 7;
+
+  leaveBalances.forEach(balance => {
+      doc.text(`- Permessi ${balance.name}: ${balance.remaining}`, 14, currentY);
+      currentY += 7;
+  });
+
+  const tableColumn = ['Data', 'Tipo', 'Dettaglio', 'Durata', 'Note'];
+  const tableRows = [];
+
+  entries.forEach(entry => {
+    const row = entry.type === 'holiday' 
+      ? [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '', entry.data.notes || '']
+      : [
+          formatDateForExport(entry.data.date), 
+          'Permesso', 
+          entry.leaveType.name, 
+          `${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`, 
+          entry.data.notes || ''
+        ];
+    tableRows.push(row);
+  });
+  
+  doc.autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: currentY,
+  });
+
+  doc.save(filename);
+};
+
+
+// --- COMPONENTS ---
+const ActionButton = ({ iconName, label, onClick }) => (
+  <button 
+    onClick={onClick} 
+    className="bg-white/20 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 sm:p-6 flex flex-col items-center justify-center text-center text-white dark:text-slate-200 shadow-lg hover:bg-white/30 transition-all duration-300 transform hover:-translate-y-1"
+    >
+    <Icon name={iconName} className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3" />
+    <span className="font-semibold text-sm sm:text-base">{label}</span>
+  </button>
+);
+
+const SummaryCard = ({ iconName, title, value, colorClass }) => (
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md flex items-center space-x-4">
+    <div className={`p-3 rounded-full ${colorClass}`}>
+      <Icon name={iconName} className="w-6 h-6 text-white" />
+    </div>
+    <div>
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+    </div>
+  </div>
+);
+
+const HomePage = ({
+  annualHolidayAllowance,
+  holidays,
+  leaveTypes,
+  leaveEntries,
+  onAddRequest,
+  onNavigate,
+  onOpenSettings,
+}) => {
+  const remainingHolidays = annualHolidayAllowance - holidays.length;
+
+  const leaveBalances = useMemo(() => {
+    return leaveTypes.map(type => {
+      const usedMinutes = leaveEntries
+        .filter(entry => entry.leaveTypeId === type.id)
+        .reduce((acc, entry) => acc + calculateMinutes(entry.startTime, entry.endTime), 0);
+      const remainingMinutes = type.allowanceMinutes - usedMinutes;
+      return { ...type, remainingMinutes };
+    });
+  }, [leaveTypes, leaveEntries]);
+
+  return (
+    <div className="min-h-screen main-gradient text-white">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <header className="py-8 sm:py-12 mb-4 sm:mb-8 flex flex-col items-center">
+            <h1 className="text-6xl sm:text-8xl font-extrabold text-white tracking-wide drop-shadow-md">Kalenda</h1>
+        </header>
+
+        <main>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-4 sm:mb-10">
+            <ActionButton iconName="calendar" label="Aggiungi Ferie" onClick={() => onAddRequest({ type: 'holiday' })} />
+            <ActionButton iconName="clock" label="Aggiungi Permesso" onClick={() => onAddRequest({ type: 'leave' })} />
+            <ActionButton iconName="list" label="Storico" onClick={() => onNavigate('history')} />
+            <ActionButton iconName="sliders" label="Impostazioni" onClick={onOpenSettings} />
+          </div>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-3 sm:mb-5">Riepilogo</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+               <SummaryCard 
+                  iconName="calendar"
+                  title="Ferie Residue"
+                  value={`${remainingHolidays} giorni`}
+                  colorClass="bg-blue-500"
+                />
+                {leaveBalances.map((balance, index) => (
+                   <SummaryCard 
+                    key={balance.id}
+                    iconName="mail"
+                    title={`Permessi ${balance.name}`}
+                    value={formatMinutesToHoursAndMinutes(balance.remainingMinutes)}
+                    colorClass={['bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-orange-500'][index % 4]}
+                  />
+                ))}
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+
+const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEditEntry, annualHolidayAllowance, onBack }) => {
+  const [filterType, setFilterType] = useState('all');
+  const [filterLeaveTypeId, setFilterLeaveTypeId] = useState('all');
+
+  const combinedEntries = useMemo(() => {
+    const holidayData = holidays.map(h => ({ type: 'holiday', data: h }));
+    const leaveData = leaveEntries.map(l => {
+        const leaveType = leaveTypes.find(lt => lt.id === l.leaveTypeId);
+        return { type: 'leave', data: l, leaveType: leaveType };
+    }).filter(l => l.leaveType);
+
+    return [...holidayData, ...leaveData].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+  }, [holidays, leaveEntries, leaveTypes]);
+
+  const filteredEntries = useMemo(() => {
+    return combinedEntries.filter(entry => {
+      if (filterType === 'all') return true;
+      if (filterType === 'holiday' && entry.type === 'holiday') return true;
+      if (filterType === 'leave' && entry.type === 'leave') {
+        if (filterLeaveTypeId === 'all') return true;
+        return entry.data.leaveTypeId === filterLeaveTypeId;
+      }
+      return false;
+    });
+  }, [combinedEntries, filterType, filterLeaveTypeId]);
+  
+  const toast = useToast();
+  
+  const exportData = {
+      entries: filteredEntries, 
+      annualHolidayAllowance, 
+      holidays, 
+      leaveTypes, 
+      leaveEntries
+  };
+
+  const handleExport = (format) => {
+    if (filteredEntries.length === 0) {
+      toast.info('Nessun dato da esportare.');
+      return;
+    }
+    const filename = `report_ferie_permessi_${new Date().toISOString().slice(0,10)}`;
+    try {
+      if (format === 'pdf') {
+        exportToPDF(exportData, `${filename}.pdf`);
+      } else {
+        exportToXLS(exportData, `${filename}.xls`);
+      }
+      toast.success('Report esportato con successo!');
+    } catch (e) {
+      console.error('Export failed:', e);
+      toast.error('Esportazione fallita. Controlla la console per i dettagli.');
+    }
+  };
+
+  return (
+    <div className="bg-slate-100 dark:bg-slate-900 min-h-screen">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header className="flex items-center justify-between mb-8">
+          <button onClick={onBack} className="flex items-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <Icon name="arrowLeft" className="w-6 h-6 mr-2" />
+            <span className="text-lg font-semibold">Indietro</span>
+          </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">Storico Richieste</h1>
+        </header>
+
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-lg mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <select 
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                >
+                    <option value="all">Tutti i tipi</option>
+                    <option value="holiday">Ferie</option>
+                    <option value="leave">Permessi</option>
+                </select>
+
+                {filterType === 'leave' && (
+                    <select
+                        value={filterLeaveTypeId}
+                        onChange={(e) => setFilterLeaveTypeId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                    >
+                        <option value="all">Tutti i permessi</option>
+                        {leaveTypes.map(lt => (
+                            <option key={lt.id} value={lt.id}>{lt.name}</option>
+                        ))}
+                    </select>
+                )}
+                 <div className="col-start-1 lg:col-start-4 flex justify-end space-x-2">
+                    <button onClick={() => handleExport('pdf')} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center transition-colors">
+                        <Icon name="document" className="w-5 h-5 mr-2" /> PDF
+                    </button>
+                    <button onClick={() => handleExport('xls')} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center transition-colors">
+                        <Icon name="download" className="w-5 h-5 mr-2" /> XLS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div className="space-y-4">
+          {filteredEntries.length > 0 ? (
+            filteredEntries.map((entry, index) => (
+              <div key={index} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                <div className="flex items-center">
+                    <div className={`p-2 rounded-full mr-4 ${entry.type === 'holiday' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-green-100 dark:bg-green-900'}`}>
+                        <Icon 
+                            name={entry.type === 'holiday' ? 'calendar' : 'clock'} 
+                            className={`w-6 h-6 ${entry.type === 'holiday' ? 'text-blue-500' : 'text-green-500'}`} 
+                        />
+                    </div>
+                    <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">
+                            {formatDateForExport(entry.data.date)}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                            {entry.type === 'holiday' ? 'Ferie' : `Permesso: ${entry.leaveType.name}`}
+                        </p>
+                    </div>
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-300 sm:text-center">
+                    {entry.type === 'leave' && (
+                        `dalle ${entry.data.startTime} alle ${entry.data.endTime} (${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))})`
+                    )}
+                </div>
+                 <div className="flex items-center justify-end space-x-2">
+                  <button onClick={() => onEditEntry(entry)} className="p-2 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <Icon name="pencil" className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => onDeleteEntry(entry)} className="p-2 text-slate-500 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <Icon name="trash" className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-slate-500 dark:text-slate-400">Nessuna richiesta trovata per i filtri selezionati.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const AddEntryModal = ({ isOpen, onClose, onSave, leaveTypes, existingEntry }) => {
+  const [entryType, setEntryType] = useState('holiday');
+  const [date, setDate] = useState('');
+  const [leaveTypeId, setLeaveTypeId] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [notes, setNotes] = useState('');
+  const modalRef = useRef();
+  const toast = useToast();
+
+  useEffect(() => {
+    if (existingEntry) {
+      setEntryType(existingEntry.type);
+      setDate(existingEntry.data.date);
+      setNotes(existingEntry.data.notes || '');
+      if (existingEntry.type === 'leave') {
+        setLeaveTypeId(existingEntry.data.leaveTypeId);
+        setStartTime(existingEntry.data.startTime);
+        setEndTime(existingEntry.data.endTime);
+      }
+    } else {
+      // Reset to default when opening for a new entry
+      setEntryType('holiday');
+      setDate(new Date().toISOString().slice(0, 10));
+      setLeaveTypeId(leaveTypes.length > 0 ? leaveTypes[0].id : '');
+      setStartTime('');
+      setEndTime('');
+      setNotes('');
+    }
+  }, [isOpen, existingEntry, leaveTypes]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isOpen, onClose]);
+
+  const handleSave = () => {
+    if (!date) {
+      toast.error('La data è obbligatoria.');
+      return;
+    }
+    
+    let entryData;
+    if (entryType === 'holiday') {
+      entryData = { id: existingEntry?.data.id || Date.now(), date, notes };
+    } else {
+      if (!leaveTypeId || !startTime || !endTime) {
+        toast.error('Tipo di permesso, ora di inizio e fine sono obbligatori.');
+        return;
+      }
+       if (calculateMinutes(startTime, endTime) <= 0) {
+        toast.error('L\'ora di fine deve essere successiva all\'ora di inizio.');
+        return;
+      }
+      entryData = { id: existingEntry?.data.id || Date.now(), date, leaveTypeId, startTime, endTime, notes };
+    }
+    
+    onSave(entryType, entryData, existingEntry ? true : false);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div ref={modalRef} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md animate-fade-in-up">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{existingEntry ? 'Modifica Richiesta' : 'Nuova Richiesta'}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <Icon name="x" className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {!existingEntry && (
+              <div className="flex rounded-lg bg-slate-100 dark:bg-slate-700 p-1">
+                <button
+                  onClick={() => setEntryType('holiday')}
+                  className={`w-1/2 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'holiday' ? 'bg-white dark:bg-slate-600 shadow' : 'text-slate-600 dark:text-slate-300'}`}
+                >
+                  Ferie
+                </button>
+                <button
+                  onClick={() => setEntryType('leave')}
+                  className={`w-1/2 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'leave' ? 'bg-white dark:bg-slate-600 shadow' : 'text-slate-600 dark:text-slate-300'}`}
+                >
+                  Permesso
+                </button>
+              </div>
+          )}
+
+          <div>
+            <label htmlFor="date" className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Data</label>
+            <input type="date" id="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-lg w-full p-2.5" />
+          </div>
+
+          {entryType === 'leave' && (
+            <>
+              <div>
+                <label htmlFor="leaveType" className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Tipo di Permesso</label>
+                <select id="leaveType" value={leaveTypeId} onChange={(e) => setLeaveTypeId(e.target.value)} className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-lg w-full p-2.5">
+                  {leaveTypes.map(lt => <option key={lt.id} value={lt.id}>{lt.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="startTime" className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Dalle</label>
+                  <input type="time" id="startTime" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-lg w-full p-2.5" />
+                </div>
+                <div>
+                  <label htmlFor="endTime" className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Alle</label>
+                  <input type="time" id="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-lg w-full p-2.5" />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div>
+            <label htmlFor="notes" className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Note (opzionale)</label>
+            <textarea id="notes" rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-lg w-full p-2.5" placeholder="Aggiungi una nota..."></textarea>
+          </div>
+        </div>
+
+        <div className="mt-8 flex justify-end space-x-3">
+          <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 transition-colors">Annulla</button>
+          <button onClick={handleSave} className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">{existingEntry ? 'Salva Modifiche' : 'Salva'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const SettingsModal = ({ isOpen, onClose, settings, onSaveSettings }) => {
+  const [annualHolidayAllowance, setAnnualHolidayAllowance] = useState(settings.annualHolidayAllowance);
+  const [leaveTypes, setLeaveTypes] = useState(settings.leaveTypes);
+  const [darkMode, setDarkMode] = useState(document.documentElement.classList.contains('dark'));
+  const modalRef = useRef();
+  const toast = useToast();
+
+  useEffect(() => {
+    setAnnualHolidayAllowance(settings.annualHolidayAllowance);
+    // Deep copy to avoid mutating original state before saving
+    setLeaveTypes(JSON.parse(JSON.stringify(settings.leaveTypes)));
+  }, [isOpen, settings]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isOpen, onClose]);
+  
+  const handleLeaveTypeChange = (index, field, value) => {
+    const newLeaveTypes = [...leaveTypes];
+    newLeaveTypes[index][field] = value;
+    setLeaveTypes(newLeaveTypes);
+  };
+
+  const handleAddLeaveType = () => {
+    if (leaveTypes.length >= 5) {
+      toast.info('Puoi aggiungere un massimo di 5 tipi di permesso.');
+      return;
+    }
+    setLeaveTypes([...leaveTypes, { id: Date.now(), name: '', allowanceHours: 0, allowanceMinutes: 0 }]);
+  };
+
+  const handleRemoveLeaveType = (index) => {
+    const newLeaveTypes = leaveTypes.filter((_, i) => i !== index);
+    setLeaveTypes(newLeaveTypes);
+  };
+  
+  const handleSave = () => {
+    const updatedLeaveTypes = leaveTypes.map(lt => ({
+      ...lt,
+      allowanceMinutes: (parseInt(lt.allowanceHours) || 0) * 60
+    }));
+
+    if (updatedLeaveTypes.some(lt => !lt.name.trim())) {
+      toast.error('Il nome per ogni tipo di permesso non può essere vuoto.');
+      return;
+    }
+    
+    onSaveSettings({ annualHolidayAllowance: parseInt(annualHolidayAllowance, 10), leaveTypes: updatedLeaveTypes });
+    onClose();
+    toast.success('Impostazioni salvate con successo!');
+  };
+
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          onSaveSettings(data.settings, data.holidays, data.leaveEntries);
+          toast.success('Dati importati con successo!');
+          onClose();
+        } catch (error) {
+          toast.error('File di backup non valido o corrotto.');
+          console.error("Import error:", error);
+        }
+      };
+      reader.readAsText(file);
+    }
+    event.target.value = null;
+  };
+  
+  const handleExport = () => {
+    try {
+      const dataToExport = {
+        settings: { annualHolidayAllowance: settings.annualHolidayAllowance, leaveTypes: settings.leaveTypes },
+        holidays: settings.holidays,
+        leaveEntries: settings.leaveEntries
+      };
+      const dataStr = JSON.stringify(dataToExport, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      const exportFileDefaultName = 'gestione_ferie_backup.json';
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      linkElement.remove();
+      toast.success('Backup esportato con successo!');
+    } catch(e) {
+      toast.error('Esportazione del backup fallita.');
+      console.error("Export error:", e);
+    }
+  };
+  
+  const toggleDarkMode = (e) => {
+    const isChecked = e.target.checked;
+    setDarkMode(isChecked);
+    if (isChecked) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50 p-4 overflow-y-auto">
+      <div ref={modalRef} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl my-8 animate-fade-in-up">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Impostazioni</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <Icon name="x" className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-200">Aspetto</h3>
+            <label htmlFor="dark-mode-toggle" className="flex items-center justify-between bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
+                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Modalità Scura</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="dark-mode-toggle" className="sr-only peer" checked={darkMode} onChange={toggleDarkMode} />
+                    <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </div>
+            </label>
+          </div>
+        
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-200">Ferie</h3>
+            <div className="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg">
+              <label htmlFor="annualHolidayAllowance" className="block mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">Giorni di ferie annuali totali</label>
+              <input 
+                type="number" 
+                id="annualHolidayAllowance" 
+                value={annualHolidayAllowance} 
+                onChange={(e) => setAnnualHolidayAllowance(e.target.value)} 
+                className="bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 text-slate-900 dark:text-slate-100 rounded-lg w-full p-2.5" 
+                min="0"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-200">Permessi</h3>
+            <div className="space-y-3">
+              {leaveTypes.map((lt, index) => (
+                <div key={lt.id} className="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                  <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor={`lt-name-${index}`} className="block mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Nome</label>
+                      <input 
+                        type="text" 
+                        id={`lt-name-${index}`}
+                        value={lt.name} 
+                        onChange={(e) => handleLeaveTypeChange(index, 'name', e.target.value)} 
+                        placeholder="Es. ROL" 
+                        className="bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 text-slate-900 dark:text-slate-100 rounded-lg w-full p-2.5" 
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`lt-hours-${index}`} className="block mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Ore totali</label>
+                       <input 
+                        type="number" 
+                        id={`lt-hours-${index}`}
+                        value={lt.allowanceHours || ''} 
+                        onChange={(e) => handleLeaveTypeChange(index, 'allowanceHours', e.target.value)} 
+                        placeholder="Es. 40" 
+                        min="0"
+                        className="bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 text-slate-900 dark:text-slate-100 rounded-lg w-full p-2.5" 
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-end justify-end h-full">
+                    <button onClick={() => handleRemoveLeaveType(index)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-2.5 rounded-lg hover:bg-red-100 dark:hover:bg-slate-600 transition-colors">
+                      <Icon name="trash" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={handleAddLeaveType} className="mt-4 w-full text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-slate-600 font-semibold py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+              <Icon name="plus" className="w-5 h-5 mr-2" /> Aggiungi Tipo Permesso
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-200">Backup e Ripristino</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button onClick={handleExport} className="w-full bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-semibold py-3 px-4 rounded-lg flex items-center justify-center transition-colors">
+                <Icon name="download" className="w-5 h-5 mr-2" /> Esporta Backup
+              </button>
+              <label className="w-full bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-semibold py-3 px-4 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                <Icon name="upload" className="w-5 h-5 mr-2" /> Importa Backup
+                <input type="file" className="hidden" accept=".json" onChange={handleImport} />
+              </label>
+            </div>
+             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+               Esporta un file con tutti i tuoi dati e le impostazioni. Importa un file per ripristinare.
+            </p>
+          </div>
+        </div>
+        
+        <div className="mt-8 flex justify-end space-x-3">
+          <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 transition-colors">Annulla</button>
+          <button onClick={handleSave} className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">Salva Impostazioni</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+const App = () => {
+  const [holidays, setHolidays] = useLocalStorage('holidays', []);
+  const [leaveEntries, setLeaveEntries] = useLocalStorage('leaveEntries', []);
+  const [settings, setSettings] = useLocalStorage('settings', {
+    annualHolidayAllowance: 23,
+    leaveTypes: [
+      { id: 1, name: 'Permesso PX', allowanceHours: 32, allowanceMinutes: 1920 },
+      { id: 2, name: 'Permesso Ex Festività', allowanceHours: 4, allowanceMinutes: 240 },
+      { id: 3, name: 'Permessi Ex Accordi', allowanceHours: 8, allowanceMinutes: 480 }
+    ]
+  });
+
+  const [currentPage, setCurrentPage] = useState('home');
+  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [entryToEdit, setEntryToEdit] = useState(null);
+  const [addRequestType, setAddRequestType] = useState({type: 'holiday'});
+  
+  const [toasts, setToasts] = useState([]);
+  let toastId = 0;
+
+  useEffect(() => {
+    // Check for theme on initial load
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const addToast = (message, type = 'info') => {
+      const id = toastId++;
+      setToasts(prev => [...prev, { id, message, type }]);
+      setTimeout(() => {
+          removeToast(id);
+      }, 5000);
+  };
+
+  const removeToast = (id) => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+  
+  const handleNavigate = (page) => setCurrentPage(page);
+
+  const handleOpenAddModal = (config) => {
+    setAddRequestType(config);
+    setEntryToEdit(null);
+    setAddModalOpen(true);
+  };
+  
+  const handleEditEntry = (entry) => {
+    setEntryToEdit(entry);
+    setAddModalOpen(true);
+  };
+
+  const handleSaveEntry = (type, data, isEditing) => {
+    if (type === 'holiday') {
+      if (isEditing) {
+        setHolidays(holidays.map(h => h.id === data.id ? data : h));
+      } else {
+        setHolidays([...holidays, data]);
+      }
+    } else {
+      if (isEditing) {
+        setLeaveEntries(leaveEntries.map(l => l.id === data.id ? data : l));
+      } else {
+        setLeaveEntries([...leaveEntries, data]);
+      }
+    }
+    addToast(isEditing ? 'Richiesta modificata con successo!' : 'Richiesta salvata con successo!', 'success');
+  };
+
+  const handleDeleteEntry = (entryToDelete) => {
+    if(window.confirm('Sei sicuro di voler eliminare questa richiesta?')) {
+        if (entryToDelete.type === 'holiday') {
+            setHolidays(holidays.filter(h => h.id !== entryToDelete.data.id));
+        } else {
+            setLeaveEntries(leaveEntries.filter(l => l.id !== entryToDelete.data.id));
+        }
+        addToast('Richiesta eliminata.', 'success');
+    }
+  };
+  
+  const handleSaveSettings = (newSettings, importedHolidays, importedLeaveEntries) => {
+    setSettings(newSettings);
+    if(importedHolidays) setHolidays(importedHolidays);
+    if(importedLeaveEntries) setLeaveEntries(importedLeaveEntries);
+  };
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'history':
+        return (
+          <HistoryView
+            holidays={holidays}
+            leaveTypes={settings.leaveTypes}
+            leaveEntries={leaveEntries}
+            onDeleteEntry={handleDeleteEntry}
+            onEditEntry={handleEditEntry}
+            annualHolidayAllowance={settings.annualHolidayAllowance}
+            onBack={() => handleNavigate('home')}
+          />
+        );
+      case 'home':
+      default:
+        return (
+          <HomePage
+            annualHolidayAllowance={settings.annualHolidayAllowance}
+            holidays={holidays}
+            leaveTypes={settings.leaveTypes}
+            leaveEntries={leaveEntries}
+            onAddRequest={handleOpenAddModal}
+            onNavigate={handleNavigate}
+            onOpenSettings={() => setSettingsModalOpen(true)}
+          />
+        );
+    }
+  };
+
+  return (
+    <ToastContext.Provider value={{ success: (msg) => addToast(msg, 'success'), error: (msg) => addToast(msg, 'error'), info: (msg) => addToast(msg, 'info') }}>
+      {renderPage()}
+      <AddEntryModal
+        isOpen={isAddModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSave={handleSaveEntry}
+        leaveTypes={settings.leaveTypes}
+        existingEntry={entryToEdit}
+      />
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        onSaveSettings={handleSaveSettings}
+        settings={{ ...settings, holidays, leaveEntries }}
+      />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </ToastContext.Provider>
+  );
+};
+
+
+ReactDOM.render(<App />, document.getElementById('root'));
+
+    </script>
+</body>
+</html>
       /* Aggiunge una transizione fluida per il tema scuro/chiaro */
       body {
         transition: background-color 0.3s ease, color 0.3s ease;
