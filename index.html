@@ -290,7 +290,6 @@ const exportToPDF = (exportData, filename = 'report.pdf') => {
 
 
 // --- COMPONENTS ---
-
 const ActionButton = ({ iconName, label, onClick }) => (
   <button 
     onClick={onClick} 
@@ -336,14 +335,13 @@ const HomePage = ({
 
   return (
     <div className="min-h-screen main-gradient text-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <header className="pt-6 sm:pt-8 mb-8 sm:mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold">Bentornato!</h1>
-          <p className="text-white/80 mt-1">Gestisci le tue assenze con semplicità.</p>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <header className="py-8 sm:py-12 mb-4 sm:mb-8 flex flex-col items-center">
+            <h1 className="text-6xl sm:text-8xl font-extrabold text-white tracking-wide drop-shadow-md">Kalenda</h1>
         </header>
 
         <main>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-4 sm:mb-10">
             <ActionButton iconName="calendar" label="Aggiungi Ferie" onClick={() => onAddRequest({ type: 'holiday' })} />
             <ActionButton iconName="clock" label="Aggiungi Permesso" onClick={() => onAddRequest({ type: 'leave' })} />
             <ActionButton iconName="list" label="Storico" onClick={() => onNavigate('history')} />
@@ -351,8 +349,8 @@ const HomePage = ({
           </div>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4 sm:mb-6">Riepilogo</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <h2 className="text-2xl font-bold mb-3 sm:mb-5">Riepilogo</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                <SummaryCard 
                   iconName="calendar"
                   title="Ferie Residue"
@@ -365,7 +363,7 @@ const HomePage = ({
                     iconName="mail"
                     title={`Permessi ${balance.name}`}
                     value={formatMinutesToHoursAndMinutes(balance.remainingMinutes)}
-                    colorClass={['bg-green-500', 'bg-yellow-500', 'bg-orange-500'][index % 3]}
+                    colorClass={['bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-orange-500'][index % 4]}
                   />
                 ))}
             </div>
@@ -896,10 +894,11 @@ const App = () => {
   const [holidays, setHolidays] = useLocalStorage('holidays', []);
   const [leaveEntries, setLeaveEntries] = useLocalStorage('leaveEntries', []);
   const [settings, setSettings] = useLocalStorage('settings', {
-    annualHolidayAllowance: 26,
+    annualHolidayAllowance: 23,
     leaveTypes: [
-      { id: 1, name: 'ROL', allowanceHours: 40, allowanceMinutes: 2400 },
-      { id: 2, name: 'Ex Festività', allowanceHours: 32, allowanceMinutes: 1920 }
+      { id: 1, name: 'Permesso PX', allowanceHours: 32, allowanceMinutes: 1920 },
+      { id: 2, name: 'Permesso Ex Festività', allowanceHours: 4, allowanceMinutes: 240 },
+      { id: 3, name: 'Permessi Ex Accordi', allowanceHours: 8, allowanceMinutes: 480 }
     ]
   });
 
