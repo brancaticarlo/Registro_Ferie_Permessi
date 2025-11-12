@@ -135,13 +135,14 @@ const exportToCSV = (exportData, filename = 'report.csv') => {
   ];
 
   // Data
-  const headers = ['Data', 'Tipo', 'Dettaglio', 'Durata (min)'];
+  const headers = ['Data', 'Tipo', 'Dettaglio', 'Durata (min)', 'Note'];
   const dataRows = entries.map(entry => {
+    const notes = `"${(entry.data.notes || '').replace(/"/g, '""')}"`;
     if (entry.type === 'holiday') {
-      return [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', 'N/A'];
+      return [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', 'N/A', notes];
     } else {
       const minutes = calculateMinutes(entry.data.startTime, entry.data.endTime);
-      return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, minutes];
+      return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, minutes, notes];
     }
   });
 
@@ -198,13 +199,13 @@ const exportToPDF = (exportData, filename = 'report.pdf') => {
   });
 
   // Data Table
-  const tableColumn = ['Data', 'Tipo', 'Dettaglio', 'Durata'];
+  const tableColumn = ['Data', 'Tipo', 'Dettaglio', 'Durata', 'Note'];
   const tableRows = [];
 
   entries.forEach(entry => {
     const row = entry.type === 'holiday' 
-      ? [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '']
-      : [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))];
+      ? [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '', entry.data.notes || '']
+      : [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime)), entry.data.notes || ''];
     tableRows.push(row);
   });
   
@@ -386,22 +387,27 @@ const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEdit
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
         <ul role="list" className="divide-y divide-slate-200 dark:divide-slate-700">
           {filteredEntries.length > 0 ? filteredEntries.map(entry => (
-            <li key={entry.data.id} className="p-4 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-              <div className="flex items-center space-x-4">
+            <li key={entry.data.id} className="p-4 flex justify-between items-start hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+              <div className="flex items-start space-x-4 flex-1 min-w-0">
                 <div className={`p-3 rounded-full ${entry.type === 'holiday' ? 'bg-emerald-100 dark:bg-emerald-900' : 'bg-sky-100 dark:bg-sky-900'}`}>
                   <Icon name={entry.type === 'holiday' ? 'calendar' : 'clock'} className={`w-6 h-6 ${entry.type === 'holiday' ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`}/>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                     {entry.type === 'holiday' ? 'Ferie' : `Permesso: ${entry.leaveType.name}`}
                   </p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     {formatDate(entry.data.date)}
-                    {entry.type === 'leave' && ` - ${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))}`}
+                    {entry.type === 'leave' && ` - ${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`}
                   </p>
+                  {entry.data.notes && (
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic truncate">
+                          "{entry.data.notes}"
+                      </p>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center flex-shrink-0 ml-4">
                 <button 
                   onClick={() => onEditEntry(entry)}
                   className="p-2 text-slate-400 hover:text-indigo-500 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
@@ -433,6 +439,7 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
   const [leaveTypeId, setLeaveTypeId] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [notes, setNotes] = useState('');
   
   const isEditing = !!entryToEdit;
 
@@ -441,10 +448,16 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
       if (entryToEdit) {
         setEntryType(entryToEdit.type);
         setDate(entryToEdit.data.date);
+        setNotes(entryToEdit.data.notes || '');
         if (entryToEdit.type === 'leave') {
           setLeaveTypeId(entryToEdit.data.leaveTypeId);
           setStartTime(entryToEdit.data.startTime);
           setEndTime(entryToEdit.data.endTime);
+        } else {
+          // Reset leave-specific fields when editing a holiday
+          setLeaveTypeId(leaveTypes.length > 0 ? leaveTypes[0].id : '');
+          setStartTime('');
+          setEndTime('');
         }
       } else {
         const defaultType = entryDefaults?.type || 'holiday';
@@ -455,6 +468,7 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
         setLeaveTypeId(defaultLeaveTypeId);
         setStartTime('');
         setEndTime('');
+        setNotes('');
       }
     }
   }, [isOpen, entryToEdit, entryDefaults, leaveTypes]);
@@ -463,7 +477,7 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
     e.preventDefault();
     let success = false;
     if (entryType === 'holiday') {
-      const payload = { type: 'holiday', date };
+      const payload = { type: 'holiday', date, notes };
       if (isEditing) {
         success = onEditEntry(entryToEdit.data.id, payload);
       } else {
@@ -474,7 +488,7 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
         alert("L'orario di fine deve essere successivo all'orario di inizio.");
         return;
       }
-      const payload = { type: 'leave', date, leaveTypeId, startTime, endTime };
+      const payload = { type: 'leave', date, leaveTypeId, startTime, endTime, notes };
       if(isEditing) {
         success = onEditEntry(entryToEdit.data.id, payload);
       } else {
@@ -498,7 +512,7 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
             </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo</label>
               <div className="flex gap-2 rounded-lg bg-slate-100 dark:bg-slate-900 p-1">
@@ -531,6 +545,10 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
                  </div>
               </>
             )}
+            <div>
+              <label htmlFor="notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Note (opzionale)</label>
+              <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows="3" className="mt-1 block w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Aggiungi dettagli..."></textarea>
+            </div>
           </div>
           <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-b-lg flex justify-end">
             <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">{isEditing ? 'Salva Modifiche' : 'Salva'}</button>
@@ -783,7 +801,7 @@ function App() {
         alert('Sono già presenti dei permessi per questa data. Impossibile registrare un giorno di ferie.');
         return false;
       }
-      setHolidays(prev => [...prev, { id: crypto.randomUUID(), date }]);
+      setHolidays(prev => [...prev, { id: crypto.randomUUID(), date: entry.date, notes: entry.notes }]);
       return true;
     } 
     
@@ -832,7 +850,7 @@ function App() {
             alert('Sono presenti dei permessi per questa data. Impossibile spostare le ferie qui.');
             return false;
         }
-        setHolidays(prev => prev.map(h => h.id === id ? { ...h, date: date } : h));
+        setHolidays(prev => prev.map(h => h.id === id ? { ...h, date: entry.date, notes: entry.notes } : h));
         return true;
     } 
     
