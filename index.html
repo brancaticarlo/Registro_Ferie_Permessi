@@ -90,8 +90,10 @@ const formatDateForExport = (dateString) => {
 };
 
 const calculateMinutes = (startTime, endTime) => {
+  if (!startTime || !endTime) return 0;
   const start = new Date(`1970-01-01T${startTime}`);
   const end = new Date(`1970-01-01T${endTime}`);
+  if (isNaN(start) || isNaN(end)) return 0;
   return Math.round((end.getTime() - start.getTime()) / 60000);
 };
 
@@ -459,12 +461,13 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    let success = false;
     if (entryType === 'holiday') {
       const payload = { type: 'holiday', date };
       if (isEditing) {
-        onEditEntry(entryToEdit.data.id, payload);
+        success = onEditEntry(entryToEdit.data.id, payload);
       } else {
-        onAddEntry(payload);
+        success = onAddEntry(payload);
       }
     } else {
       if (!leaveTypeId || !startTime || !endTime || calculateMinutes(startTime, endTime) <= 0) {
@@ -473,12 +476,14 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
       }
       const payload = { type: 'leave', date, leaveTypeId, startTime, endTime };
       if(isEditing) {
-        onEditEntry(entryToEdit.data.id, payload);
+        success = onEditEntry(entryToEdit.data.id, payload);
       } else {
-        onAddEntry(payload);
+        success = onAddEntry(payload);
       }
     }
-    onClose();
+    if (success) {
+      onClose();
+    }
   };
   
   if (!isOpen) return null;
@@ -497,8 +502,8 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo</label>
               <div className="flex gap-2 rounded-lg bg-slate-100 dark:bg-slate-900 p-1">
-                <button type="button" onClick={() => setEntryType('holiday')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'holiday' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>Ferie</button>
-                <button type="button" onClick={() => setEntryType('leave')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'leave' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>Permesso</button>
+                <button type="button" disabled={isEditing} onClick={() => setEntryType('holiday')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'holiday' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>Ferie</button>
+                <button type="button" disabled={isEditing} onClick={() => setEntryType('leave')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'leave' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>Permesso</button>
               </div>
             </div>
             <div>
@@ -634,7 +639,7 @@ const SettingsModal = ({
         if (data.annualHolidayAllowance === undefined || !Array.isArray(data.holidays) || !Array.isArray(data.leaveTypes) || !Array.isArray(data.leaveEntries)) {
             throw new Error("Invalid backup file format.");
         }
-        if (window.confirm("Sei sicuro? I dati attuali verranno sovrascritto.")) {
+        if (window.confirm("Sei sicuro? I dati attuali verranno sovrascritti.")) {
             setAnnualHolidayAllowance(data.annualHolidayAllowance);
             setHolidays(data.holidays);
             setLeaveTypes(data.leaveTypes);
@@ -759,23 +764,102 @@ function App() {
   };
 
   const handleAddEntry = (entry) => {
-    if (entry.type === 'holiday') {
-      if (holidays.some(h => h.date === entry.date)) {
-          alert('Hai già registrato ferie per questo giorno.');
-          return;
+    const { type, date, startTime, endTime } = entry;
+    
+    const timeToMinutes = (timeStr) => {
+        if (!timeStr) return 0;
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+    };
+
+    if (type === 'holiday') {
+      const holidayConflict = holidays.some(h => h.date === date);
+      if (holidayConflict) {
+        alert('Un giorno di ferie è già registrato per questa data.');
+        return false;
       }
-      setHolidays([...holidays, { id: crypto.randomUUID(), date: entry.date }]);
-    } else if (entry.type === 'leave') {
-      setLeaveEntries([...leaveEntries, { id: crypto.randomUUID(), ...entry }]);
+      const leaveConflict = leaveEntries.some(l => l.date === date);
+      if (leaveConflict) {
+        alert('Sono già presenti dei permessi per questa data. Impossibile registrare un giorno di ferie.');
+        return false;
+      }
+      setHolidays(prev => [...prev, { id: crypto.randomUUID(), date }]);
+      return true;
+    } 
+    
+    else if (type === 'leave') {
+      const holidayConflict = holidays.some(h => h.date === date);
+      if (holidayConflict) {
+        alert('Un giorno di ferie è già registrato per questa data. Impossibile aggiungere un permesso.');
+        return false;
+      }
+
+      const newStartMinutes = timeToMinutes(startTime);
+      const newEndMinutes = timeToMinutes(endTime);
+
+      const isOverlapping = leaveEntries.some(existingEntry => {
+          if (existingEntry.date !== date) return false;
+          const existingStartMinutes = timeToMinutes(existingEntry.startTime);
+          const existingEndMinutes = timeToMinutes(existingEntry.endTime);
+          return newStartMinutes < existingEndMinutes && existingStartMinutes < newEndMinutes;
+      });
+
+      if (isOverlapping) {
+          alert('Esiste già un permesso che si sovrappone a questo intervallo di tempo.');
+          return false;
+      }
+      setLeaveEntries(prev => [...prev, { id: crypto.randomUUID(), ...entry }]);
+      return true;
     }
+    return false;
   };
   
   const handleEditEntry = (id, entry) => {
-    if (entry.type === 'holiday') {
-        setHolidays(holidays.map(h => h.id === id ? { ...h, date: entry.date } : h));
-    } else if (entry.type === 'leave') {
-        setLeaveEntries(leaveEntries.map(l => l.id === id ? { ...l, date: entry.date, leaveTypeId: entry.leaveTypeId, startTime: entry.startTime, endTime: entry.endTime } : l));
+    const { type, date, startTime, endTime } = entry;
+    
+    const timeToMinutes = (timeStr) => {
+        if (!timeStr) return 0;
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+    };
+
+    if (type === 'holiday') {
+        if (holidays.some(h => h.date === date && h.id !== id)) {
+            alert('Un altro giorno di ferie è già registrato per questa data.');
+            return false;
+        }
+        if (leaveEntries.some(l => l.date === date)) {
+            alert('Sono presenti dei permessi per questa data. Impossibile spostare le ferie qui.');
+            return false;
+        }
+        setHolidays(prev => prev.map(h => h.id === id ? { ...h, date: date } : h));
+        return true;
+    } 
+    
+    else if (type === 'leave') {
+        if (holidays.some(h => h.date === date)) {
+            alert('Un giorno di ferie è già registrato per questa data.');
+            return false;
+        }
+
+        const newStartMinutes = timeToMinutes(startTime);
+        const newEndMinutes = timeToMinutes(endTime);
+
+        const isOverlapping = leaveEntries.some(existingEntry => {
+            if (existingEntry.id === id || existingEntry.date !== date) return false;
+            const existingStartMinutes = timeToMinutes(existingEntry.startTime);
+            const existingEndMinutes = timeToMinutes(existingEntry.endTime);
+            return newStartMinutes < existingEndMinutes && existingStartMinutes < newEndMinutes;
+        });
+
+        if (isOverlapping) {
+            alert('La modifica si sovrappone a un altro permesso esistente.');
+            return false;
+        }
+        setLeaveEntries(prev => prev.map(l => l.id === id ? { ...l, ...entry } : l));
+        return true;
     }
+    return false;
   };
 
   const handleDeleteEntry = (id, type) => {
