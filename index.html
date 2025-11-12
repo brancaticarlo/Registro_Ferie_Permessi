@@ -49,7 +49,7 @@ const_EXPORT_DO_NOT_REMOVE = 1; // Dummy export to satisfy module scope
 // --- ICONS ---
 const icons = {
   plus: <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />,
-  cog: <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.5 0s-1.5-3-1.5-6 1.5-6 1.5-6m-12 0s1.5 3 1.5 6-1.5 6-1.5 6" />,
+  sliders: <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />,
   calendar: <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0h18M-4.5 12h22.5" />,
   clock: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />,
   download: <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />,
@@ -292,7 +292,7 @@ const HomePage = ({
             <ActionButton iconName="calendar" label="Aggiungi Ferie" onClick={() => onAddRequest({ type: 'holiday' })} />
             <ActionButton iconName="clock" label="Aggiungi Permesso" onClick={() => onAddRequest({ type: 'leave' })} />
             <ActionButton iconName="list" label="Storico" onClick={() => onNavigate('history')} />
-            <ActionButton iconName="cog" label="Impostazioni" onClick={onOpenSettings} />
+            <ActionButton iconName="sliders" label="Impostazioni" onClick={onOpenSettings} />
           </div>
 
           <section>
