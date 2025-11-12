@@ -107,7 +107,7 @@ const formatMinutesToHoursAndMinutes = (minutes) => {
     return `${mins}m`;
 };
 
-const exportToCSV = (exportData, filename = 'report.csv') => {
+const exportToXLS = (exportData, filename = 'report.xls') => {
   const { entries, annualHolidayAllowance, holidays, leaveTypes, leaveEntries } = exportData;
   const reportDate = new Date().toLocaleDateString('it-IT');
   
@@ -129,29 +129,34 @@ const exportToCSV = (exportData, filename = 'report.csv') => {
     [`Riepilogo Residui alla data del: ${reportDate}`],
     [],
     ['Tipo', 'Residuo'],
-    ['Ferie', `"${remainingHolidays} giorni"`],
-    ...leaveBalances.map(b => [`Permessi ${b.name}`, `"${b.remaining}"`]),
+    ['Ferie', `${remainingHolidays} giorni`],
+    ...leaveBalances.map(b => [`Permessi ${b.name}`, `${b.remaining}`]),
     [],
   ];
 
   // Data
-  const headers = ['Data', 'Tipo', 'Dettaglio', 'Durata (min)', 'Note'];
+  const headers = ['Data', 'Tipo', 'Dettaglio', 'Durata', 'Note'];
   const dataRows = entries.map(entry => {
-    const notes = `"${(entry.data.notes || '').replace(/"/g, '""')}"`;
+    const notes = entry.data.notes || '';
     if (entry.type === 'holiday') {
-      return [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', 'N/A', notes];
+      return [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '', notes];
     } else {
-      const minutes = calculateMinutes(entry.data.startTime, entry.data.endTime);
-      return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, minutes, notes];
+      const duration = formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime));
+      const durationWithRange = `${duration} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`;
+      return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, durationWithRange, notes];
     }
   });
 
-  // Combine
-  let csvContent = "data:text/csv;charset=utf-8," 
-    + [...summaryRows.map(e => e.join(',')), headers.join(','), ...dataRows.map(e => e.join(','))].join('\n');
-
-  // Download
-  const encodedUri = encodeURI(csvContent);
+  // Combine using Tab Separated Values for better Excel compatibility
+  const tsvContent = [
+      ...summaryRows.map(e => e.join('\t')), 
+      headers.join('\t'), 
+      ...dataRows.map(e => e.join('\t'))
+  ].join('\n');
+  
+  // The 'data:application/vnd.ms-excel' MIME type is a common way to trigger Excel download.
+  const xlsContent = "data:application/vnd.ms-excel;charset=utf-8," + tsvContent;
+  const encodedUri = encodeURI(xlsContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
   link.setAttribute('download', filename);
@@ -205,7 +210,13 @@ const exportToPDF = (exportData, filename = 'report.pdf') => {
   entries.forEach(entry => {
     const row = entry.type === 'holiday' 
       ? [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '', entry.data.notes || '']
-      : [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime)), entry.data.notes || ''];
+      : [
+          formatDateForExport(entry.data.date), 
+          'Permesso', 
+          entry.leaveType.name, 
+          `${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`, 
+          entry.data.notes || ''
+        ];
     tableRows.push(row);
   });
   
@@ -361,9 +372,9 @@ const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEdit
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Storico Assenze</h2>
         <div className="flex items-center space-x-2">
-            <button onClick={() => exportToCSV(exportPayload)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+            <button onClick={() => exportToXLS(exportPayload)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
                 <Icon name="download" className="w-4 h-4"/>
-                <span>CSV</span>
+                <span>XLS</span>
             </button>
             <button onClick={() => exportToPDF(exportPayload)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
                  <Icon name="download" className="w-4 h-4"/>
