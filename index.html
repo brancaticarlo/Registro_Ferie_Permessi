@@ -95,9 +95,46 @@ const calculateMinutes = (startTime, endTime) => {
   return Math.round((end.getTime() - start.getTime()) / 60000);
 };
 
-const exportToCSV = (entries, filename = 'report.csv') => {
+const formatMinutesToHoursAndMinutes = (minutes) => {
+    if (isNaN(minutes) || minutes < 0) return '0m';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0 && mins > 0) return `${hours}h ${mins}m`;
+    if (hours > 0) return `${hours}h`;
+    return `${mins}m`;
+};
+
+const exportToCSV = (exportData, filename = 'report.csv') => {
+  const { entries, annualHolidayAllowance, holidays, leaveTypes, leaveEntries } = exportData;
+  const reportDate = new Date().toLocaleDateString('it-IT');
+  
+  // Calculate balances
+  const remainingHolidays = annualHolidayAllowance - holidays.length;
+  const leaveBalances = leaveTypes.map(type => {
+    const usedMinutes = leaveEntries
+      .filter(entry => entry.leaveTypeId === type.id)
+      .reduce((acc, entry) => acc + calculateMinutes(entry.startTime, entry.endTime), 0);
+    const remainingMinutes = type.allowanceMinutes - usedMinutes;
+    return { 
+      name: type.name, 
+      remaining: formatMinutesToHoursAndMinutes(remainingMinutes) 
+    };
+  });
+
+  // Summary
+  const summaryRows = [
+    [`Riepilogo Residui alla data del: ${reportDate}`],
+    [],
+    ['Tipo', 'Residuo'],
+    ['Ferie', `"${remainingHolidays} giorni"`],
+    ...leaveBalances.map(b => [`Permessi ${b.name}`, `"${b.remaining}"`]),
+    [],
+  ];
+
+  // Data
   const headers = ['Data', 'Tipo', 'Dettaglio', 'Durata (min)'];
-  const rows = entries.map(entry => {
+  const dataRows = entries.map(entry => {
     if (entry.type === 'holiday') {
       return [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', 'N/A'];
     } else {
@@ -106,9 +143,11 @@ const exportToCSV = (entries, filename = 'report.csv') => {
     }
   });
 
+  // Combine
   let csvContent = "data:text/csv;charset=utf-8," 
-    + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    + [...summaryRows.map(e => e.join(',')), headers.join(','), ...dataRows.map(e => e.join(','))].join('\n');
 
+  // Download
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
@@ -118,26 +157,61 @@ const exportToCSV = (entries, filename = 'report.csv') => {
   document.body.removeChild(link);
 };
 
-const exportToPDF = (entries, filename = 'report.pdf') => {
+
+const exportToPDF = (exportData, filename = 'report.pdf') => {
+  const { entries, annualHolidayAllowance, holidays, leaveTypes, leaveEntries } = exportData;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  const reportDate = new Date().toLocaleDateString('it-IT');
+  
+  // Calculate balances
+  const remainingHolidays = annualHolidayAllowance - holidays.length;
+  const leaveBalances = leaveTypes.map(type => {
+    const usedMinutes = leaveEntries
+      .filter(entry => entry.leaveTypeId === type.id)
+      .reduce((acc, entry) => acc + calculateMinutes(entry.startTime, entry.endTime), 0);
+    const remainingMinutes = type.allowanceMinutes - usedMinutes;
+    return { 
+      name: type.name, 
+      remaining: formatMinutesToHoursAndMinutes(remainingMinutes) 
+    };
+  });
+  
+  // Header
+  doc.text("Report Ferie e Permessi", 14, 15);
 
-  const tableColumn = ['Data', 'Tipo', 'Dettaglio', 'Durata (min)'];
+  // Summary
+  let currentY = 25;
+  doc.setFontSize(12);
+  doc.text(`Riepilogo Residui alla data del: ${reportDate}`, 14, currentY);
+  currentY += 10;
+
+  doc.setFontSize(10);
+  doc.text(`- Ferie Residue: ${remainingHolidays} giorni`, 14, currentY);
+  currentY += 7;
+
+  leaveBalances.forEach(balance => {
+      doc.text(`- Permessi ${balance.name}: ${balance.remaining}`, 14, currentY);
+      currentY += 7;
+  });
+
+  // Data Table
+  const tableColumn = ['Data', 'Tipo', 'Dettaglio', 'Durata'];
   const tableRows = [];
 
   entries.forEach(entry => {
     const row = entry.type === 'holiday' 
       ? [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '']
-      : [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, calculateMinutes(entry.data.startTime, entry.data.endTime)];
+      : [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))];
     tableRows.push(row);
   });
   
   doc.autoTable({
     head: [tableColumn],
     body: tableRows,
-    startY: 20,
+    startY: currentY,
   });
-  doc.text("Report Ferie e Permessi", 14, 15);
+
   doc.save(filename);
 };
 
@@ -161,17 +235,28 @@ const Header = () => {
   );
 };
 
-const StatCard = ({ iconName, title, value, unit, colorClass }) => {
+const StatCard = ({ iconName, title, value, unit, colorClass, onAdd }) => {
   return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
-      <div className={`p-3 rounded-full ${colorClass}`}>
-        <Icon name={iconName} className="w-6 h-6 text-white" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
-        <div className="flex items-baseline space-x-1">
-          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
-          <span className="text-sm text-slate-500 dark:text-slate-400">{unit}</span>
+    <div className="relative bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300">
+      {onAdd && (
+        <button
+          onClick={onAdd}
+          className="absolute top-3 right-3 p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+          aria-label={`Aggiungi ${title}`}
+        >
+          <Icon name="plus" className="w-5 h-5" />
+        </button>
+      )}
+      <div className="flex items-start space-x-4">
+        <div className={`p-3 rounded-full ${colorClass}`}>
+          <Icon name={iconName} className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
+          <div className="flex items-baseline space-x-1">
+            <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+            <span className="text-sm text-slate-500 dark:text-slate-400">{unit}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -183,7 +268,7 @@ const Dashboard = ({
   holidays,
   leaveTypes,
   leaveEntries,
-  onAddEntry
+  onAddRequest
 }) => {
   const remainingHolidays = annualHolidayAllowance - holidays.length;
 
@@ -200,25 +285,10 @@ const Dashboard = ({
     });
   }, [leaveTypes, leaveEntries]);
 
-  const formatMinutes = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if(hours > 0 && mins > 0) return `${hours}h ${mins}m`;
-    if(hours > 0) return `${hours} ore`;
-    return `${mins} min`;
-  }
-
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Riepilogo</h2>
-        <button
-          onClick={onAddEntry}
-          className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <Icon name="plus" className="w-5 h-5" />
-          <span>Aggiungi</span>
-        </button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard 
@@ -227,15 +297,17 @@ const Dashboard = ({
           value={remainingHolidays.toString()}
           unit="giorni"
           colorClass="bg-emerald-500"
+          onAdd={() => onAddRequest({ type: 'holiday' })}
         />
         {leaveBalances.map((balance, index) => (
            <StatCard 
             key={balance.id}
             iconName="clock"
             title={`Permessi ${balance.name}`}
-            value={formatMinutes(balance.remainingMinutes)}
+            value={formatMinutesToHoursAndMinutes(balance.remainingMinutes)}
             unit="rimanenti"
             colorClass={['bg-sky-500', 'bg-amber-500', 'bg-rose-500'][index % 3]}
+            onAdd={() => onAddRequest({ type: 'leave', leaveTypeId: balance.id })}
           />
         ))}
       </div>
@@ -243,7 +315,7 @@ const Dashboard = ({
   );
 };
 
-const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEditEntry }) => {
+const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEditEntry, annualHolidayAllowance }) => {
   const [filterType, setFilterType] = useState('all');
   const [filterLeaveTypeId, setFilterLeaveTypeId] = useState('all');
 
@@ -273,16 +345,24 @@ const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEdit
     return new Date(dateString).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
+  const exportPayload = {
+    entries: filteredEntries,
+    annualHolidayAllowance,
+    holidays,
+    leaveTypes,
+    leaveEntries,
+  };
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Storico Assenze</h2>
         <div className="flex items-center space-x-2">
-            <button onClick={() => exportToCSV(filteredEntries)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+            <button onClick={() => exportToCSV(exportPayload)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
                 <Icon name="download" className="w-4 h-4"/>
                 <span>CSV</span>
             </button>
-            <button onClick={() => exportToPDF(filteredEntries)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+            <button onClick={() => exportToPDF(exportPayload)} className="flex items-center space-x-2 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
                  <Icon name="download" className="w-4 h-4"/>
                 <span>PDF</span>
             </button>
@@ -315,7 +395,7 @@ const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEdit
                   </p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     {formatDate(entry.data.date)}
-                    {entry.type === 'leave' && ` - ${calculateMinutes(entry.data.startTime, entry.data.endTime)} min`}
+                    {entry.type === 'leave' && ` - ${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))}`}
                   </p>
                 </div>
               </div>
@@ -345,7 +425,7 @@ const HistoryView = ({ holidays, leaveTypes, leaveEntries, onDeleteEntry, onEdit
   );
 };
 
-const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, entryToEdit }) => {
+const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, entryToEdit, entryDefaults }) => {
   const [entryType, setEntryType] = useState('holiday');
   const [date, setDate] = useState('');
   const [leaveTypeId, setLeaveTypeId] = useState('');
@@ -365,14 +445,17 @@ const AddEntryModal = ({ isOpen, onClose, onAddEntry, onEditEntry, leaveTypes, e
           setEndTime(entryToEdit.data.endTime);
         }
       } else {
-        setEntryType('holiday');
+        const defaultType = entryDefaults?.type || 'holiday';
+        const defaultLeaveTypeId = entryDefaults?.leaveTypeId || (leaveTypes.length > 0 ? leaveTypes[0].id : '');
+        
+        setEntryType(defaultType);
         setDate(new Date().toISOString().split('T')[0]);
-        setLeaveTypeId(leaveTypes[0]?.id || '');
+        setLeaveTypeId(defaultLeaveTypeId);
         setStartTime('');
         setEndTime('');
       }
     }
-  }, [isOpen, entryToEdit, leaveTypes]);
+  }, [isOpen, entryToEdit, entryDefaults, leaveTypes]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -551,7 +634,7 @@ const SettingsModal = ({
         if (data.annualHolidayAllowance === undefined || !Array.isArray(data.holidays) || !Array.isArray(data.leaveTypes) || !Array.isArray(data.leaveEntries)) {
             throw new Error("Invalid backup file format.");
         }
-        if (window.confirm("Sei sicuro? I dati attuali verranno sovrascritti.")) {
+        if (window.confirm("Sei sicuro? I dati attuali verranno sovrascritto.")) {
             setAnnualHolidayAllowance(data.annualHolidayAllowance);
             setHolidays(data.holidays);
             setLeaveTypes(data.leaveTypes);
@@ -656,9 +739,11 @@ function App() {
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [entryDefaults, setEntryDefaults] = useState(null);
 
-  const handleOpenAddModal = () => {
+  const handleOpenAddModal = (defaults = null) => {
     setEditingEntry(null);
+    setEntryDefaults(defaults);
     setAddModalOpen(true);
   };
   
@@ -669,6 +754,7 @@ function App() {
   
   const handleCloseAddModal = () => {
     setEditingEntry(null);
+    setEntryDefaults(null);
     setAddModalOpen(false);
   };
 
@@ -721,11 +807,12 @@ function App() {
             holidays={holidays}
             leaveTypes={leaveTypes}
             leaveEntries={leaveEntries}
-            onAddEntry={handleOpenAddModal}
+            onAddRequest={handleOpenAddModal}
           />
         )}
         {currentView === 'search' && (
           <HistoryView
+            annualHolidayAllowance={annualHolidayAllowance}
             holidays={holidays}
             leaveTypes={leaveTypes}
             leaveEntries={leaveEntries}
@@ -741,6 +828,7 @@ function App() {
         onEditEntry={handleEditEntry}
         leaveTypes={leaveTypes}
         entryToEdit={editingEntry}
+        entryDefaults={entryDefaults}
       />
       <SettingsModal
         isOpen={isSettingsModalOpen}
@@ -756,7 +844,7 @@ function App() {
       />
        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 z-40 flex items-center justify-around">
         <NavItem iconName="home" label="Home" isActive={currentView === 'home'} onClick={() => setCurrentView('home')} />
-        <NavItem iconName="search" label="Ricerca" isActive={currentView === 'search'} onClick={() => setCurrentView('search')} />
+        <NavItem iconName="search" label="Storico" isActive={currentView === 'search'} onClick={() => setCurrentView('search')} />
         <NavItem iconName="cog" label="Impostazioni" isActive={isSettingsModalOpen} onClick={() => setSettingsModalOpen(true)} />
       </nav>
     </div>
