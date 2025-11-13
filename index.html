@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -87,7 +88,7 @@
           bg: 'bg-blue-500',
           iconBg: 'bg-blue-100 dark:bg-blue-900',
           text: 'text-blue-500',
-          hex: '#3b82f6'
+          hex: '#3b82f6',
       };
       const LEAVE_COLORS = [
           { bg: 'bg-green-500', iconBg: 'bg-green-100 dark:bg-green-900', text: 'text-green-500', hex: '#22c55e' },
@@ -181,6 +182,18 @@
 
 
       // --- UTILS ---
+      const isValidDate = (dateString) => {
+        if (typeof dateString !== 'string' || dateString.length === 0) return false;
+        const d = new Date(dateString);
+        return d instanceof Date && !isNaN(d.getTime());
+      };
+
+      const isValidTime = (timeString) => {
+        if (typeof timeString !== 'string') return false;
+        // Check for HH:mm format
+        return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
+      };
+
       const formatDateForExport = (dateString) => {
         return new Date(dateString).toLocaleDateString('it-IT');
       };
@@ -236,7 +249,7 @@
           } else {
             const duration = formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime));
             const durationWithRange = `${duration} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`;
-            return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType.name, durationWithRange, notes];
+            return [formatDateForExport(entry.data.date), 'Permesso', entry.leaveType ? entry.leaveType.name : 'Tipo Eliminato', durationWithRange, notes];
           }
         });
 
@@ -263,6 +276,7 @@
         const reportDate = new Date().toLocaleDateString('it-IT');
         
         const remainingHolidays = annualHolidayAllowance - holidays.length;
+        const usedHolidays = holidays.length;
         const leaveBalances = leaveTypes.map(type => {
           const usedMinutes = leaveEntries
             .filter(entry => entry.leaveTypeId === type.id)
@@ -270,6 +284,7 @@
           const remainingMinutes = type.allowanceMinutes - usedMinutes;
           return { 
             name: type.name, 
+            used: formatMinutesToHoursAndMinutes(usedMinutes),
             remaining: formatMinutesToHoursAndMinutes(remainingMinutes) 
           };
         });
@@ -278,52 +293,43 @@
 
         let currentY = 25;
         doc.setFontSize(12);
-        doc.text(`Riepilogo Residui alla data del: ${reportDate}`, 14, currentY);
+        doc.text(`Riepilogo Ferie e Permessi alla data del: ${reportDate}`, 14, currentY);
         currentY += 10;
 
         doc.setFontSize(10);
-        doc.text(`- Ferie Residue: ${remainingHolidays} giorni`, 14, currentY);
+        doc.text(`- Ferie: ${usedHolidays} giorni fruiti / ${remainingHolidays} residui`, 14, currentY);
         currentY += 7;
 
         leaveBalances.forEach(balance => {
-            doc.text(`- Permessi ${balance.name}: ${balance.remaining}`, 14, currentY);
+            doc.text(`- Permessi ${balance.name}: ${balance.used} fruiti / ${balance.remaining} residui`, 14, currentY);
             currentY += 7;
         });
 
-        const tableColumn = ['Data', 'Tipo', 'Dettaglio', 'Durata', 'Note'];
+        const tableColumn = ['Data', 'Dettaglio', 'Durata', 'Note'];
         const tableRows = [];
 
         entries.forEach(entry => {
-          const row = entry.type === 'holiday' 
-            ? [formatDateForExport(entry.data.date), 'Ferie', 'Giorno intero', '', entry.data.notes || '']
-            : [
-                formatDateForExport(entry.data.date), 
-                'Permesso', 
-                entry.leaveType.name, 
-                `${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`, 
-                entry.data.notes || ''
-              ];
-          tableRows.push(row);
+            const rowData = {
+                date: formatDateForExport(entry.data.date),
+                detail: '',
+                duration: '',
+                notes: entry.data.notes || '',
+            };
+
+            if (entry.type === 'holiday') {
+                rowData.detail = 'Ferie';
+            } else {
+                rowData.detail = entry.leaveType ? entry.leaveType.name : 'Tipo Eliminato';
+                rowData.duration = `${formatMinutesToHoursAndMinutes(calculateMinutes(entry.data.startTime, entry.data.endTime))} (dalle ${entry.data.startTime} alle ${entry.data.endTime})`;
+            }
+            
+            tableRows.push([rowData.date, rowData.detail, rowData.duration, rowData.notes]);
         });
         
         doc.autoTable({
           head: [tableColumn],
           body: tableRows,
           startY: currentY,
-          didDrawCell: (data) => {
-              if (data.section === 'body' && data.column.index === 1) {
-                  const entry = entries[data.row.index];
-                  let color;
-                  if (entry.type === 'holiday') {
-                      color = HOLIDAY_COLOR.hex;
-                  } else {
-                      color = getColorForLeaveType(leaveTypes, entry.leaveType.id).hex;
-                  }
-                  doc.setFillColor(color);
-                  doc.rect(data.cell.x + 2, data.cell.y + data.cell.height / 2 - 1.5, 3, 3, 'F');
-                  data.cell.textPos.x = data.cell.x + 8; // Offset text to avoid overlap
-              }
-          },
         });
 
         doc.save(filename);
@@ -346,10 +352,10 @@
           {onAdd && (
             <button 
               onClick={onAdd}
-              className="absolute top-2 right-2 p-1.5 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+              className="absolute top-1/2 -translate-y-1/2 right-4 p-2 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-200 transform hover:scale-110"
               aria-label={`Aggiungi ${title}`}
             >
-              <Icon name="plus" className="w-5 h-5" />
+              <Icon name="plus" className="w-6 h-6" />
             </button>
           )}
           <div className={`p-3 rounded-full ${colorClass}`}>
@@ -432,11 +438,12 @@
         const [filterLeaveTypeId, setFilterLeaveTypeId] = useState('all');
 
         const combinedEntries = useMemo(() => {
-          const holidayData = holidays.map(h => ({ type: 'holiday', data: h }));
-          const leaveData = leaveEntries.map(l => {
+          // Data is pre-sanitized by the App component
+          const holidayData = (holidays || []).map(h => ({ type: 'holiday', data: h }));
+          const leaveData = (leaveEntries || []).map(l => {
               const leaveType = leaveTypes.find(lt => lt.id === l.leaveTypeId);
               return { type: 'leave', data: l, leaveType: leaveType };
-          }).filter(l => l.leaveType);
+          });
 
           return [...holidayData, ...leaveData].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
         }, [holidays, leaveEntries, leaveTypes]);
@@ -536,10 +543,10 @@
                   filteredEntries.map((entry, index) => {
                     const entryColor = entry.type === 'holiday' 
                       ? HOLIDAY_COLOR
-                      : getColorForLeaveType(leaveTypes, entry.leaveType.id);
+                      : getColorForLeaveType(leaveTypes, entry.data.leaveTypeId);
                     
                     return (
-                      <div key={index} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                      <div key={`${entry.type}-${entry.data.id}-${index}`} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                         <div className="flex items-center">
                             <div className={`p-2 rounded-full mr-4 ${entryColor.iconBg}`}>
                                 <Icon 
@@ -552,7 +559,7 @@
                                     {formatDateForExport(entry.data.date)}
                                 </p>
                                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    {entry.type === 'holiday' ? 'Ferie' : `Permesso: ${entry.leaveType.name}`}
+                                    {entry.type === 'holiday' ? 'Ferie' : `Permesso: ${entry.leaveType ? entry.leaveType.name : 'Tipo Eliminato'}`}
                                 </p>
                             </div>
                         </div>
@@ -584,7 +591,7 @@
       };
 
 
-      const AddEntryModal = ({ isOpen, onClose, onSave, leaveTypes, existingEntry, initialData, remainingHolidays, leaveBalances }) => {
+      const AddEntryModal = ({ isOpen, onClose, onSave, leaveTypes, existingEntry, initialData, remainingHolidays, leaveBalances, holidays, leaveEntries }) => {
         const [entryType, setEntryType] = useState('holiday');
         const [date, setDate] = useState('');
         const [leaveTypeId, setLeaveTypeId] = useState('');
@@ -646,6 +653,62 @@
                   return;
               }
           }
+
+          // --- Overlap Check ---
+          const isEditing = !!existingEntry;
+          const currentId = isEditing ? existingEntry.data.id : null;
+          const originalType = isEditing ? existingEntry.type : null;
+          
+          const otherHolidaysOnSameDay = holidays.filter(h => {
+              if (h.date !== date) return false;
+              if (isEditing && originalType === 'holiday' && h.id === currentId) return false;
+              return true;
+          });
+
+          const otherLeavesOnSameDay = leaveEntries.filter(l => {
+              if (l.date !== date) return false;
+              if (isEditing && originalType === 'leave' && l.id === currentId) return false;
+              return true;
+          });
+
+          if (entryType === 'holiday') {
+              if (otherHolidaysOnSameDay.length > 0) {
+                  toast.error(`Esiste già una richiesta di ferie per il giorno ${formatDateForExport(date)}.`);
+                  return;
+              }
+              if (otherLeavesOnSameDay.length > 0) {
+                  toast.error(`Esistono già permessi per il giorno ${formatDateForExport(date)}. Impossibile inserire ferie.`);
+                  return;
+              }
+          }
+
+          if (entryType === 'leave') {
+              if (otherHolidaysOnSameDay.length > 0) {
+                  toast.error(`Esiste già una richiesta di ferie per il giorno ${formatDateForExport(date)}. Impossibile inserire un permesso.`);
+                  return;
+              }
+
+              const toMinutes = (timeStr) => {
+                if (!timeStr) return 0;
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                return hours * 60 + minutes;
+              };
+
+              const newStartMinutes = toMinutes(startTime);
+              const newEndMinutes = toMinutes(endTime);
+
+              const overlappingLeave = otherLeavesOnSameDay.find(l => {
+                  const existingStartMinutes = toMinutes(l.startTime);
+                  const existingEndMinutes = toMinutes(l.endTime);
+                  return newStartMinutes < existingEndMinutes && existingStartMinutes < newEndMinutes;
+              });
+
+              if (overlappingLeave) {
+                  toast.error(`L'orario si sovrappone con un altro permesso (${overlappingLeave.startTime} - ${overlappingLeave.endTime}).`);
+                  return;
+              }
+          }
+          // --- End Overlap Check ---
           
           // --- Balance Check ---
           if (!existingEntry) { // New entry
@@ -1010,7 +1073,7 @@
         const [addRequestType, setAddRequestType] = useState({type: 'holiday'});
         
         const [toasts, setToasts] = useState([]);
-        let toastId = 0;
+        const toastIdCounter = useRef(0);
 
         useEffect(() => {
           // Check for theme on initial load
@@ -1022,7 +1085,7 @@
         }, []);
 
         const addToast = (message, type = 'info') => {
-            const id = toastId++;
+            const id = toastIdCounter.current++;
             setToasts(prev => [...prev, { id, message, type }]);
             setTimeout(() => {
                 removeToast(id);
@@ -1079,26 +1142,30 @@
           if(importedHolidays) setHolidays(importedHolidays);
           if(importedLeaveEntries) setLeaveEntries(importedLeaveEntries);
         };
+        
+        // Sanitize data from localStorage to prevent crashes, ensuring all required fields are present and valid.
+        const saneHolidays = useMemo(() => (holidays || []).filter(h => h && h.id && isValidDate(h.date)), [holidays]);
+        const saneLeaveEntries = useMemo(() => (leaveEntries || []).filter(l => l && l.id && isValidDate(l.date) && l.leaveTypeId != null && isValidTime(l.startTime) && isValidTime(l.endTime)), [leaveEntries]);
 
-        const remainingHolidays = settings.annualHolidayAllowance - holidays.length;
+        const remainingHolidays = settings.annualHolidayAllowance - saneHolidays.length;
         const leaveBalances = useMemo(() => {
             return settings.leaveTypes.map(type => {
-                const usedMinutes = leaveEntries
+                const usedMinutes = saneLeaveEntries
                     .filter(entry => entry.leaveTypeId === type.id)
                     .reduce((acc, entry) => acc + calculateMinutes(entry.startTime, entry.endTime), 0);
                 const remainingMinutes = type.allowanceMinutes - usedMinutes;
                 return { ...type, remainingMinutes };
             });
-        }, [settings.leaveTypes, leaveEntries]);
+        }, [settings.leaveTypes, saneLeaveEntries]);
 
         const renderPage = () => {
           switch (currentPage) {
             case 'history':
               return (
                 <HistoryView
-                  holidays={holidays}
+                  holidays={saneHolidays}
                   leaveTypes={settings.leaveTypes}
-                  leaveEntries={leaveEntries}
+                  leaveEntries={saneLeaveEntries}
                   onDeleteEntry={handleDeleteEntry}
                   onEditEntry={handleEditEntry}
                   annualHolidayAllowance={settings.annualHolidayAllowance}
@@ -1110,9 +1177,9 @@
               return (
                 <HomePage
                   annualHolidayAllowance={settings.annualHolidayAllowance}
-                  holidays={holidays}
+                  holidays={saneHolidays}
                   leaveTypes={settings.leaveTypes}
-                  leaveEntries={leaveEntries}
+                  leaveEntries={saneLeaveEntries}
                   onAddRequest={handleOpenAddModal}
                   onNavigate={handleNavigate}
                   onOpenSettings={() => setSettingsModalOpen(true)}
@@ -1133,12 +1200,14 @@
               initialData={addRequestType}
               remainingHolidays={remainingHolidays}
               leaveBalances={leaveBalances}
+              holidays={saneHolidays}
+              leaveEntries={saneLeaveEntries}
             />
             <SettingsModal
               isOpen={isSettingsModalOpen}
               onClose={() => setSettingsModalOpen(false)}
               onSaveSettings={handleSaveSettings}
-              settings={{ ...settings, holidays, leaveEntries }}
+              settings={{ ...settings, holidays: saneHolidays, leaveEntries: saneLeaveEntries }}
             />
             <ToastContainer toasts={toasts} removeToast={removeToast} />
           </ToastContext.Provider>
